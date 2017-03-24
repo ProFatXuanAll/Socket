@@ -52,7 +52,7 @@
 /************************************ 
  *	server send/recv buffer size	*
  ***********************************/
-#define BUF_SIZE ((unsigned long long int)1024)
+#define BUF_SIZE ((unsigned long long int)512)
 
 /************************************ 
  *	client file name buffer size	*

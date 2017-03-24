@@ -12,8 +12,7 @@ extern void TCPS(char filename[], int cfd)
 {
 	FILE* fptr;
 	char buffer[BUF_SIZE], fbuffer[BUF_SIZE];
-	unsigned long long int bytes_send, bytes_send_total, bytes_left, bytes_len_total;
-	unsigned long long int ACK_counter;
+	unsigned long long int bytes_send, bytes_left, bytes_len_total, buf_ptr;
 
 	fptr = fopen(filename,"rb");
 
@@ -25,36 +24,13 @@ extern void TCPS(char filename[], int cfd)
 		exit(EXIT_FAILURE);
 	}
 
-	ACK_counter = 0;	/* IMPORTANT!!! */
-
 	/* send file name */
-	bytes_left = strlen(filename);
-	bytes_send_total = 0;
+	memset(buffer, 0, BUF_SIZE);
+	sprintf(buffer,"%s",filename);
+	bytes_left = BUF_SIZE;
+	buf_ptr = 0;
 	do{
-		memset(buffer, 0, BUF_SIZE);
-		if(bytes_left >= BUF_SIZE - ACK_LEN){	/* enough to fill in (BUF_SIZE - ACK_LEN) bytes */
-			ACK_Set(&ACK_counter, buffer, filename + bytes_send_total, BUF_SIZE - ACK_LEN);
-			bytes_send = send(cfd, buffer, BUF_SIZE, 0);
-			bytes_left -= (bytes_send - ACK_LEN);
-			bytes_send_total += (bytes_send - ACK_LEN);
-		}
-		else if(bytes_left > 0){	/* not enough to fill in (BUF_SIZE - ACK_LEN) bytes */
-			ACK_Set(&ACK_counter, buffer, filename + bytes_send_total, bytes_left);
-			bytes_send = send(cfd, buffer, BUF_SIZE, 0);
-			if(bytes_send == BUF_SIZE){	/* all send */
-				bytes_left = 0;
-				bytes_send_total += (bytes_left);
-			}
-			else{	/* some bytes left */
-				bytes_left -= (bytes_send > ACK_LEN ? bytes_send - ACK_LEN : 0);
-				bytes_send_total += (bytes_send > ACK_LEN ? bytes_send - ACK_LEN : 0);
-			}
-			/* may need padding bits */
-		}
-		else{	/* error */
-			fprintf(stderr, "[error] unexpected bytes left on sending file name.\n");
-			exit(EXIT_FAILURE);
-		}
+		bytes_send = send(cfd, buffer + buf_ptr, BUF_SIZE - buf_ptr, 0);
 		
 		if(bytes_send < 0){
 			perror("[error] on sendind filename: ");
@@ -63,51 +39,19 @@ extern void TCPS(char filename[], int cfd)
 			#endif
 			exit(EXIT_FAILURE);
 		}
-	}while(bytes_left != 0);
+
+		bytes_left -= bytes_send;
+		buf_ptr += bytes_send;
+	}while(bytes_left!=0);
 	/* end send file name */
-	
-	/* ACK for sending filename */
-	ACK_Set(&ACK_counter, buffer, "", 0);
-	bytes_send = send(cfd, buffer, BUF_SIZE, 0);
-	
-	if(bytes_send < 0){
-		perror("[error] on sendind filename: ");
-		#ifdef LINUX
-		close(cfd); 
-		#endif
-		exit(EXIT_FAILURE);
-	}
-	/* end ACK for sending filename */
 
 	/* send file length */
-	sprintf(fbuffer, "%llu", getFileSize(fptr));
-	bytes_left = strlen(fbuffer);
-	bytes_send_total = 0;
+	memset(buffer, 0, BUF_SIZE);
+	sprintf(buffer, "%llu", getFileSize(fptr));
+	bytes_left = BUF_SIZE;
+	buf_ptr=0;
 	do{
-		memset(buffer, 0, BUF_SIZE);
-		if(bytes_left >= BUF_SIZE - ACK_LEN){	/* enough to fill in (BUF_SIZE - ACK_LEN) bytes */
-			ACK_Set(&ACK_counter, buffer, fbuffer + bytes_send_total, BUF_SIZE - ACK_LEN);
-			bytes_send = send(cfd, buffer, BUF_SIZE, 0);
-			bytes_left -= (bytes_send - ACK_LEN);
-			bytes_send_total += (bytes_send - ACK_LEN);
-		}
-		else if(bytes_left > 0){	/* not enough to fill in (BUF_SIZE - ACK_LEN) bytes */
-			ACK_Set(&ACK_counter, buffer, fbuffer + bytes_send_total, bytes_left);
-			bytes_send = send(cfd, buffer, BUF_SIZE, 0);
-			if(bytes_send == BUF_SIZE){	/* all send */
-				bytes_left = 0;
-				bytes_send_total += (bytes_left);
-			}
-			else{	/* some bytes left */
-				bytes_left -= (bytes_send > ACK_LEN ? bytes_send - ACK_LEN : 0);	
-				bytes_send_total += (bytes_send > ACK_LEN ? bytes_send - ACK_LEN : 0);
-			}
-			/* may need padding bits */
-		}
-		else{	/* error */
-			fprintf(stderr, "[error] unexpected bytes left on sending file length.\n");
-			exit(EXIT_FAILURE);
-		}
+		bytes_send = send(cfd, buffer + buf_ptr, BUF_SIZE - buf_ptr, 0);
 		
 		if(bytes_send < 0){
 			perror("[error] on sendind file length: ");
@@ -116,78 +60,43 @@ extern void TCPS(char filename[], int cfd)
 			#endif
 			exit(EXIT_FAILURE);
 		}
-	}while(bytes_left != 0);
+
+		bytes_left -= bytes_send;
+		buf_ptr += bytes_send;
+	}while(bytes_left!=0);
 	/* end send file length */
-	
-	/* ACK for sending file length */
-	ACK_Set(&ACK_counter, buffer, "", 0);
-	bytes_send = send(cfd, buffer, BUF_SIZE, 0);
-	
-	if(bytes_send < 0){
-		perror("[error] on sendind filename: ");
-		#ifdef LINUX
-		close(cfd); 
-		#endif
-		exit(EXIT_FAILURE);
-	}
-	/* end ACK for sending file length */
 
 	/* send file content */
-	bytes_len_total = getFileSize(fptr);
-	while(bytes_len_total != 0){
-		memset(buffer, 0, BUF_SIZE);
-		memset(fbuffer, 0, BUF_SIZE);
-		bytes_left = fread(fbuffer, sizeof(char), BUF_SIZE - ACK_LEN, fptr);
-		bytes_send_total = 0;
-		do{
-			if(bytes_left == BUF_SIZE - ACK_LEN){
-				ACK_Set(&ACK_counter, buffer, fbuffer, BUF_SIZE - ACK_LEN);
-				bytes_send = send(cfd, buffer, BUF_SIZE, 0);
-				bytes_left -= (bytes_send - ACK_LEN);
-				bytes_send_total += (bytes_send - ACK_LEN);
-			}
-			else if(bytes_left < BUF_SIZE - ACK_LEN){
-				ACK_Set(&ACK_counter, buffer, fbuffer, bytes_left);
-				bytes_send = send(cfd, buffer, BUF_SIZE, 0);
-				if(bytes_send == BUF_SIZE){	/* all send */
-					bytes_left = 0;
-					bytes_send_total += (bytes_left);
-				}
-				else{	/* some bytes left */
-					bytes_left -= (bytes_send > ACK_LEN ? bytes_send - ACK_LEN : 0);
-					bytes_send_total += (bytes_send > ACK_LEN ? bytes_send - ACK_LEN : 0);
-				}
-				/* may need padding bits */
-			}
-			else{
-				fprintf(stderr, "[error] unexpected block size.\n");
-				exit(EXIT_FAILURE);
-			}
-			
-			if(bytes_send < 0){
-				perror("[error] on sendind file content: ");
-				#ifdef LINUX
-				close(cfd); 
-				#endif
-				exit(EXIT_FAILURE);
-			}
-		}while(bytes_left != 0);
+	if(getFileSize(fptr)!=0){
+		bytes_len_total = getFileSize(fptr);
 
-		bytes_len_total -= bytes_send_total;
+		while(bytes_len_total != 0){
+			memset(buffer, 0, BUF_SIZE);
+			
+			bytes_left = 0;
+			
+			do{
+				bytes_left += fread(buffer + bytes_left, sizeof(char), BUF_SIZE - bytes_left, fptr);
+			}while(!feof(fptr) && bytes_left < BUF_SIZE);
+			
+			buf_ptr = 0;
+			do{
+				bytes_send = send(cfd, buffer + buf_ptr, bytes_left - buf_ptr, 0);
+			
+				if(bytes_send < 0){
+					perror("[error] on sendind file content: ");
+					#ifdef LINUX
+					close(cfd); 
+					#endif
+					exit(EXIT_FAILURE);
+				}
+
+				buf_ptr += bytes_send;
+			}while(bytes_left == buf_ptr);
+
+			bytes_len_total -= bytes_left;
+		}
 	}
-	
-	/* ACK for sending file content */
-	ACK_Set(&ACK_counter, buffer, "", 0);
-	bytes_send = send(cfd, buffer, BUF_SIZE, 0);
-	
-	if(bytes_send < 0){
-		perror("[error] on sendind file content: ");
-		#ifdef LINUX
-		close(cfd); 
-		#endif
-		exit(EXIT_FAILURE);
-	}
-	/* end ACK for sending file content */
 
 	fclose(fptr);
 	/* end send file connent */
@@ -197,38 +106,29 @@ extern void TCPR(int sfd)
 {
 	FILE* fptr;
 	char buffer[BUF_SIZE];
-	char filename[NAME_SIZE_MAX];
+	char filename[BUF_SIZE];
 	char filelength[BUF_SIZE];
-	unsigned long long int bytes_recv, bytes_recv_total, bytes_write, bytes_len_total;
+	unsigned long long int bytes_recv, bytes_len_total, bytes_write, buf_ptr;
 	unsigned long long int ACK_counter;
 
 	/* receive file name first */
-	bytes_recv_total = 0;
-	while(1){
-		memset(buffer, 0, BUF_SIZE);
-		if((bytes_recv=recv(sfd, buffer, sizeof(buffer), 0)) < 0){
+	buf_ptr = 0;
+	memset(filename, 0, BUF_SIZE);
+	do{
+		bytes_recv = recv(sfd, filename + buf_ptr, BUF_SIZE - buf_ptr, 0);
+		
+		if(bytes_recv < 0){
 			perror("[error] on receiving filename: ");
 			#ifdef LINUX
 			close(sfd);
 			#endif
 			exit(EXIT_FAILURE);
 		}
-		if(ACK_Check(&ACK_counter, buffer, &bytes_recv) < 0){
-			perror("[error] on filename ACK check failed.");
-			#ifdef LINUX
-			close(sfd);
-			#endif
-			exit(EXIT_FAILURE);
-		}
-		if(bytes_recv == 0){	/* ACK inform filename transfer end */
-			filename[bytes_recv_total] = '\0';
-			break;
-		}
-		strncpy(filename + bytes_recv_total, buffer, bytes_recv);
-		bytes_recv_total += bytes_recv;
-	}
+		
+		buf_ptr += bytes_recv;
+	}while(buf_ptr != BUF_SIZE);
 	/* end receive file name */
-	
+
 	printf("[client] filename received: %s\n", filename);
 
 	fptr = fopen(filename, "wb");
@@ -242,66 +142,64 @@ extern void TCPR(int sfd)
 	}
 
 	/* receive file length */
-	bytes_recv_total = 0;
-	while(1){
-		memset(buffer, 0, BUF_SIZE);
-		if((bytes_recv=recv(sfd, buffer, sizeof(buffer), 0)) < 0){
+	buf_ptr = 0;
+	memset(filelength, 0, BUF_SIZE);
+	do{
+		bytes_recv = recv(sfd, buffer + buf_ptr, BUF_SIZE - buf_ptr, 0);
+		
+		if(bytes_recv < 0){
 			perror("[error] on receiving filename: ");
 			#ifdef LINUX
 			close(sfd);
 			#endif
 			exit(EXIT_FAILURE);
 		}
-		if(ACK_Check(&ACK_counter, buffer, &bytes_recv) < 0){
-			perror("[error] on filename ACK check failed.");
-			#ifdef LINUX
-			close(sfd);
-			#endif
-			exit(EXIT_FAILURE);
-		}
-		if(bytes_recv == 0){	/* ACK inform filename transfer end */
-			filelength[bytes_recv_total] = '\0';
-			break;
-		}
-		strncpy(filelength + bytes_recv_total, buffer, bytes_recv);
-		bytes_recv_total += bytes_recv;
-	}
+		
+		buf_ptr += bytes_recv;
+	}while(buf_ptr != BUF_SIZE);
 	/* end receive file length */
 	
 	bytes_len_total = strtoull(filelength,NULL,10);
-	
+
 	printf("[client] file length received: %llu\n", bytes_len_total);
 
 	/* receive file content */
-	bytes_recv_total = 0;
-	while(1){
-		memset(buffer, 0, BUF_SIZE);
-		if((bytes_recv = recv(sfd, buffer, sizeof(buffer), 0)) < 0){
-			perror("[error] on writing file: ");
-			#ifdef LINUX
-			close(sfd);
-			#endif
-			exit(EXIT_FAILURE);
+	if(bytes_len_total != 0){
+
+		while(bytes_len_total != 0){
+			memset(buffer, 0, BUF_SIZE);
+			bytes_write = (bytes_len_total >= BUF_SIZE ? BUF_SIZE : bytes_len_total);
+			buf_ptr = 0;
+		
+			do{
+				bytes_recv = recv(sfd, buffer + buf_ptr, bytes_write - buf_ptr, 0);
+			
+				if(bytes_recv < 0){
+					perror("[error] on writing file: ");
+					#ifdef LINUX
+					close(sfd);
+					#endif
+					exit(EXIT_FAILURE);
+				}
+
+				buf_ptr += bytes_recv;
+			}while(buf_ptr != bytes_write);
+		
+			buf_ptr = 0;
+
+			do{
+				buf_ptr += fwrite(buffer + buf_ptr, sizeof(char), bytes_write - buf_ptr, fptr);
+					if(bytes_write < 0){
+						perror("[error] on writing file: ");
+						#ifdef LINUX
+						close(sfd);
+						#endif
+						exit(EXIT_FAILURE);
+					}
+			}while(buf_ptr != bytes_write);
+
+		bytes_len_total -= bytes_write;
 		}
-		if(ACK_Check(&ACK_counter, buffer, &bytes_recv) < 0){
-			perror("[error] on file ACK check failed.");
-			#ifdef LINUX
-			close(sfd);
-			#endif
-			exit(EXIT_FAILURE);
-		}
-		if(bytes_recv == 0){	/* ACK inform file transfer end */
-			break;
-		}
-		bytes_write = fwrite(buffer, sizeof(char), bytes_recv, fptr);
-		if(bytes_write < 0 || bytes_write != bytes_recv){
-			perror("[error] on writing file: ");
-			#ifdef LINUX
-			close(sfd);
-			#endif
-			exit(EXIT_FAILURE);
-		}
-		bytes_recv_total += bytes_recv;
 	}
 	/* end receive file content */
 
