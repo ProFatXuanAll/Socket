@@ -2,10 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <time.h>
 #include "argsetup.h"
 #include "TCP.h"
-#include "ACK.h"
+#include "log.h"
 
 static unsigned long long int getFileSize(FILE* fptr);
 
@@ -14,7 +13,6 @@ extern void TCPS(char filename[], int cfd)
 	FILE* fptr;
 	char buffer[BUF_SIZE], fbuffer[BUF_SIZE];
 	unsigned long long int bytes_send, bytes_left, bytes_len_total, buf_ptr;
-	
 
 	fptr = fopen(filename,"rb");
 
@@ -112,7 +110,7 @@ extern void TCPR(int sfd)
 	char filename[BUF_SIZE];
 	char filelength[BUF_SIZE];
 	unsigned long long int bytes_recv, bytes_len_total, bytes_write, buf_ptr;
-	unsigned long long int ACK_counter;
+	unsigned long long int numerator, denominator, next;
 
 	/* receive file name first */
 	buf_ptr = 0;
@@ -163,6 +161,12 @@ extern void TCPR(int sfd)
 	/* end receive file length */
 	
 	bytes_len_total = strtoull(filelength,NULL,10);
+	
+	/* log relative initialization */
+	denominator = bytes_len_total;
+	numerator = 0;
+	resetlog(&next);
+	/* end log relative initialization */
 
 	printf("[client] file length received: %llu\n", bytes_len_total);
 
@@ -201,7 +205,9 @@ extern void TCPR(int sfd)
 					}
 			}while(buf_ptr != bytes_write);
 
-		bytes_len_total -= bytes_write;
+			bytes_len_total -= bytes_write;
+			numerator += bytes_write;
+			printlog(numerator, denominator,&next);
 		}
 	}
 	/* end receive file content */

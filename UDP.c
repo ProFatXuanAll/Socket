@@ -5,6 +5,7 @@
 #include "argsetup.h"
 #include "UDP.h"
 #include "ACK.h"
+#include "log.h"
 
 static unsigned long long int getFileSize(FILE* fptr);
 
