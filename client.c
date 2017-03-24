@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include "argsetup.h"
+#include "client.h"
 #include "TCP.h"
 #include "UDP.h"
 
@@ -42,7 +43,7 @@ extern void ClientStartUp(char Protocol[],char IP[],char Port[],char Filename[])
 		status = connect(serv_sock_fd, p->ai_addr, p->ai_addrlen);
 
 		if(status < 0){	/* connect function error check */
-			perro("[error] on function connect: ");
+			perror("[error] on function connect: ");
 			#ifdef LINUX
 			close(serv_sock_fd);
 			#endif

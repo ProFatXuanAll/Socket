@@ -21,7 +21,8 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 	struct addrinfo* serv_info;			/* server socket information */
 	struct sockaddr_storage clie_info;	/* client socket information */
 	socklen_t addrlen;					/* client socket information size */
-	int yes=1;	/*don't know what is this*/
+	int yes=1;							/* don't know what is this */
+	struct sigaction sa;				/* signal.h relative */
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;													/* either IPv4 or IPv6 */
@@ -31,7 +32,7 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 	status = getaddrinfo(IP, Port, &hints, &serv_info);
 
 	if(status != 0){	/* getaddrinfo function error check */
-		fprintf(stderr, "[error] on function getaddrinfo: %s\n", gai_sterrpr(rv));
+		fprintf(stderr, "[error] on function getaddrinfo: %s\n", gai_strerror(status));
 		exit(EXIT_FAILURE);
 	}
 

@@ -125,7 +125,7 @@ extern void TCPS(char filename[], int cfd)
 	/* end send file connent */
 }
 
-static void TCPR(int sfd)
+extern void TCPR(int sfd)
 {
 	FILE* fptr;
 	char buffer[BUF_SIZE];
