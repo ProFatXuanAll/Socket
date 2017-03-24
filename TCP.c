@@ -18,9 +18,7 @@ extern void TCPS(char filename[], int cfd)
 
 	if(fptr == NULL){	/* fopen function error check */
 		perror("[error] file open failure: ");
-		#ifdef LINUX
 		close(cfd); 
-		#endif
 		exit(EXIT_FAILURE);
 	}
 
@@ -34,9 +32,7 @@ extern void TCPS(char filename[], int cfd)
 		
 		if(bytes_send < 0){
 			perror("[error] on sendind filename: ");
-			#ifdef LINUX
 			close(cfd); 
-			#endif
 			exit(EXIT_FAILURE);
 		}
 
@@ -55,9 +51,7 @@ extern void TCPS(char filename[], int cfd)
 		
 		if(bytes_send < 0){
 			perror("[error] on sendind file length: ");
-			#ifdef LINUX
 			close(cfd); 
-			#endif
 			exit(EXIT_FAILURE);
 		}
 
@@ -86,9 +80,7 @@ extern void TCPS(char filename[], int cfd)
 			
 				if(bytes_send < 0){
 					perror("[error] on sendind file content: ");
-					#ifdef LINUX
 					close(cfd); 
-					#endif
 					exit(EXIT_FAILURE);
 				}
 
@@ -120,9 +112,7 @@ extern void TCPR(int sfd)
 		
 		if(bytes_recv < 0){
 			perror("[error] on receiving filename: ");
-			#ifdef LINUX
 			close(sfd);
-			#endif
 			exit(EXIT_FAILURE);
 		}
 		
@@ -136,9 +126,7 @@ extern void TCPR(int sfd)
 	
 	if(fptr == NULL){	/* fopen function error check */
 		perror("[error] file open failure: ");
-		#ifdef LINUX
 		close(sfd);
-		#endif
 		exit(EXIT_FAILURE);
 	}
 
@@ -150,9 +138,7 @@ extern void TCPR(int sfd)
 		
 		if(bytes_recv < 0){
 			perror("[error] on receiving filename: ");
-			#ifdef LINUX
 			close(sfd);
-			#endif
 			exit(EXIT_FAILURE);
 		}
 		
@@ -183,9 +169,7 @@ extern void TCPR(int sfd)
 			
 				if(bytes_recv < 0){
 					perror("[error] on writing file: ");
-					#ifdef LINUX
 					close(sfd);
-					#endif
 					exit(EXIT_FAILURE);
 				}
 
@@ -198,9 +182,7 @@ extern void TCPR(int sfd)
 				buf_ptr += fwrite(buffer + buf_ptr, sizeof(char), bytes_write - buf_ptr, fptr);
 					if(bytes_write < 0){
 						perror("[error] on writing file: ");
-						#ifdef LINUX
 						close(sfd);
-						#endif
 						exit(EXIT_FAILURE);
 					}
 			}while(buf_ptr != bytes_write);

@@ -12,24 +12,24 @@ static unsigned long long int getFileSize(FILE* fptr);
 extern void UDPS(char filename[], int cfd)
 {
 	FILE* fptr;
-	char buffer[BUF_SIZE], fbuffer[BUF_SIZE];
-	unsigned long long int bytes_send, bytes_send_total, bytes_left, bytes_len_total;
+	char buffer[BUF_SIZE + ACK_LEN], fbuffer[BUF_SIZE];
+	unsigned long long int bytes_send, bytes_send_total, bytes_left, bytes_len_total, buf_ptr;
 	unsigned long long int ACK_counter;
 
 	fptr = fopen(filename,"rb");
 
 	if(fptr == NULL){	/* fopen function error check */
 		perror("[error] file open failure: ");
-		#ifdef LINUX
 		close(cfd); 
-		#endif
 		exit(EXIT_FAILURE);
 	}
 
 	ACK_counter = 0;	/* IMPORTANT!!! */
 
 	/* send file name */
+	memset(buffer, 0, BUF_SIZE);
 	bytes_left = strlen(filename);
+	buf_ptr = 0;
 	bytes_send_total = 0;
 	do{
 		memset(buffer, 0, BUF_SIZE);
@@ -59,9 +59,7 @@ extern void UDPS(char filename[], int cfd)
 		
 		if(bytes_send < 0){
 			perror("[error] on sendind filename: ");
-			#ifdef LINUX
 			close(cfd); 
-			#endif
 			exit(EXIT_FAILURE);
 		}
 	}while(bytes_left != 0);
@@ -73,9 +71,7 @@ extern void UDPS(char filename[], int cfd)
 	
 	if(bytes_send < 0){
 		perror("[error] on sendind filename: ");
-		#ifdef LINUX
 		close(cfd); 
-		#endif
 		exit(EXIT_FAILURE);
 	}
 	/* end ACK for sending filename */
@@ -112,9 +108,7 @@ extern void UDPS(char filename[], int cfd)
 		
 		if(bytes_send < 0){
 			perror("[error] on sendind file length: ");
-			#ifdef LINUX
 			close(cfd); 
-			#endif
 			exit(EXIT_FAILURE);
 		}
 	}while(bytes_left != 0);
@@ -126,9 +120,7 @@ extern void UDPS(char filename[], int cfd)
 	
 	if(bytes_send < 0){
 		perror("[error] on sendind filename: ");
-		#ifdef LINUX
 		close(cfd); 
-		#endif
 		exit(EXIT_FAILURE);
 	}
 	/* end ACK for sending file length */
@@ -167,9 +159,7 @@ extern void UDPS(char filename[], int cfd)
 			
 			if(bytes_send < 0){
 				perror("[error] on sendind file content: ");
-				#ifdef LINUX
 				close(cfd); 
-				#endif
 				exit(EXIT_FAILURE);
 			}
 
@@ -184,9 +174,7 @@ extern void UDPS(char filename[], int cfd)
 	
 	if(bytes_send < 0){
 		perror("[error] on sendind file content: ");
-		#ifdef LINUX
 		close(cfd); 
-		#endif
 		exit(EXIT_FAILURE);
 	}
 	/* end ACK for sending file content */
@@ -210,16 +198,12 @@ extern void UDPR(int sfd)
 		memset(buffer, 0, BUF_SIZE);
 		if((bytes_recv=recv(sfd, buffer, sizeof(buffer), 0)) < 0){
 			perror("[error] on receiving filename: ");
-			#ifdef LINUX
 			close(sfd);
-			#endif
 			exit(EXIT_FAILURE);
 		}
 		if(ACK_Check(&ACK_counter, buffer, &bytes_recv) < 0){
 			perror("[error] on filename ACK check failed.");
-			#ifdef LINUX
 			close(sfd);
-			#endif
 			exit(EXIT_FAILURE);
 		}
 		if(bytes_recv == 0){	/* ACK inform filename transfer end */
@@ -237,9 +221,7 @@ extern void UDPR(int sfd)
 	
 	if(fptr == NULL){	/* fopen function error check */
 		perror("[error] file open failure: ");
-		#ifdef LINUX
 		close(sfd);
-		#endif
 		exit(EXIT_FAILURE);
 	}
 
@@ -249,16 +231,12 @@ extern void UDPR(int sfd)
 		memset(buffer, 0, BUF_SIZE);
 		if((bytes_recv=recv(sfd, buffer, sizeof(buffer), 0)) < 0){
 			perror("[error] on receiving filename: ");
-			#ifdef LINUX
 			close(sfd);
-			#endif
 			exit(EXIT_FAILURE);
 		}
 		if(ACK_Check(&ACK_counter, buffer, &bytes_recv) < 0){
 			perror("[error] on filename ACK check failed.");
-			#ifdef LINUX
 			close(sfd);
-			#endif
 			exit(EXIT_FAILURE);
 		}
 		if(bytes_recv == 0){	/* ACK inform filename transfer end */
@@ -280,16 +258,12 @@ extern void UDPR(int sfd)
 		memset(buffer, 0, BUF_SIZE);
 		if((bytes_recv = recv(sfd, buffer, sizeof(buffer), 0)) < 0){
 			perror("[error] on writing file: ");
-			#ifdef LINUX
 			close(sfd);
-			#endif
 			exit(EXIT_FAILURE);
 		}
 		if(ACK_Check(&ACK_counter, buffer, &bytes_recv) < 0){
 			perror("[error] on file ACK check failed.");
-			#ifdef LINUX
 			close(sfd);
-			#endif
 			exit(EXIT_FAILURE);
 		}
 		if(bytes_recv == 0){	/* ACK inform file transfer end */
@@ -298,9 +272,7 @@ extern void UDPR(int sfd)
 		bytes_write = fwrite(buffer, sizeof(char), bytes_recv, fptr);
 		if(bytes_write < 0 || bytes_write != bytes_recv){
 			perror("[error] on writing file: ");
-			#ifdef LINUX
 			close(sfd);
-			#endif
 			exit(EXIT_FAILURE);
 		}
 		bytes_recv_total += bytes_recv;

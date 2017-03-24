@@ -44,9 +44,7 @@ extern void ClientStartUp(char Protocol[],char IP[],char Port[],char Filename[])
 
 		if(status < 0){	/* connect function error check */
 			perror("[error] on function connect: ");
-			#ifdef LINUX
 			close(serv_sock_fd);
-			#endif
 			continue;
 		}
 
@@ -59,9 +57,7 @@ extern void ClientStartUp(char Protocol[],char IP[],char Port[],char Filename[])
 			}
 			else{
 				fprintf(stderr, "[error] on conver IPv4 address.\n");
-				#ifdef LINUX
 				close(serv_sock_fd);
-				#endif
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -72,9 +68,7 @@ extern void ClientStartUp(char Protocol[],char IP[],char Port[],char Filename[])
 			}
 			else{
 				fprintf(stderr, "[error] on conver IPv6 address.\n");
-				#ifdef LINUX
 				close(serv_sock_fd);
-				#endif
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -98,13 +92,7 @@ extern void ClientStartUp(char Protocol[],char IP[],char Port[],char Filename[])
 		UDPR(serv_sock_fd);
 	}
 
-	#ifdef LINUX
 	status=close(serv_sock_fd);
-	#endif
-
-	#ifdef MSDOS
-
-	#endif
 
 	if(status<0){
 		perror("[error] on client socket close: ");

@@ -4,6 +4,11 @@
 #include "argsetup.h"
 #include "ACK.h"
 
+extern void ACK_init(unsigned long long int *num){
+	*num = 0;
+	return;
+}
+
 extern void ACK_Set(unsigned long long int* num, char dst[], const char src[], unsigned long long int len){
 	unsigned long long ACK_len;
 

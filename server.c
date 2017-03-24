@@ -57,9 +57,7 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 		status = bind(serv_sock_fd, p->ai_addr, p->ai_addrlen);
 
 		if(status < 0){	/* bind function error check */
-			#ifdef LINUX
 			close(serv_sock_fd);
-			#endif
 			perror("[error] on function bind: ");
 			continue;
 		}
@@ -75,28 +73,25 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 		exit(EXIT_FAILURE);
 	}
 
-	/* listening request */
-	status=listen(serv_sock_fd,BACKLOG);
+	if(tolower(Protocol[0])=='t'){	/* TCP send */
 
-	if(status < 0){	/* listen function error check */
-		perror("[error] on listen: ");
-		exit(EXIT_FAILURE);
-	}
+		/* listening request */
+		status=listen(serv_sock_fd,BACKLOG);
 
-	#ifdef LINUX
-	sa.sa_handler = sigchld_handler;	/* reap all dead processes */
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = SA_RESTART;
-	if(sigaction(SIGCHLD, &sa, NULL) == -1){
-		perror("[error] on function sigaction: ");
-		exit(EXIT_FAILURE);
-	}
-	#endif 
+		if(status < 0){	/* listen function error check */
+			perror("[error] on listen: ");
+			exit(EXIT_FAILURE);
+		}
 
-	printf("[server] waiting for connections...\n");
+		sa.sa_handler = sigchld_handler;	/* reap all dead processes */
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = SA_RESTART;
+		if(sigaction(SIGCHLD, &sa, NULL) == -1){
+			perror("[error] on function sigaction: ");
+			exit(EXIT_FAILURE);
+		}
 
-	/*while(1){*/	/* main accept() loop, not used in this project  */
-	/*****************************************************************/	
+		printf("[server] waiting for connections by TCP...\n");
 
 		/* accept connection */
 		addrlen = sizeof(struct sockaddr_storage);
@@ -104,9 +99,7 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 
 		if(clie_sock_fd < 0){	/* accept function error check */
 			perror("[error] on function accept: ");
-			#ifdef LINUX
 			close(serv_sock_fd);
-			#endif
 			exit(EXIT_FAILURE);
 		}
 
@@ -119,10 +112,8 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 			}
 			else{
 				fprintf(stderr, "[error] on convert IPv4 address.\n");
-				#ifdef LINUX
+				close(clie_sock_fd);
 				close(serv_sock_fd);
-				close(serv_sock_fd);
-				#endif
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -133,49 +124,29 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 			}
 			else{
 				fprintf(stderr, "[error] on convert IPv6 address.\n");
-				#ifdef LINUX
+				close(clie_sock_fd);
 				close(serv_sock_fd);
-				close(serv_sock_fd);
-				#endif
 				exit(EXIT_FAILURE);
 			}
 		}
 #endif
-
-		if(tolower(Protocol[0])=='t'){	/* TCP:send */
-			TCPS(Filename,clie_sock_fd);
-		}
-		else{	/* UDP:receive */
-			UDPS(Filename,clie_sock_fd);
-		}
-
-		#ifdef LINUX
-		status=close(clie_sock_fd);
-		#endif
-
-		#ifdef MSDOS
+		TCPS(Filename, clie_sock_fd);
 	
-		#endif
-
+		status=close(clie_sock_fd);
+	
 		if(status<0){
 			perror("[error] on client socket close: ");
-			#ifdef LINUX
 			close(serv_sock_fd);
-			#endif
 			exit(EXIT_FAILURE);
 		}
+	}	/* end TCP send */
+	else{	/* UDP send */
+		printf("[server] waiting for connections by TCP...\n");
+		
+		UDPS(Filename,clie_sock_fd);
+	}	/* end UDP send */
 
-	/****************************************************************/
-	/*}*/ /* end main accept() loop */
-
-
-	#ifdef LINUX
 	status=close(serv_sock_fd);
-	#endif
-
-	#ifdef MSDOS
-
-	#endif
 
 	if(status<0){
 		perror("[error] on server socket close: ");
@@ -189,9 +160,7 @@ static void sigchld_handler(int s)
 	/* waitpid() might overwrite errno, so we save and restore it. */
 	int saved_errno = errno;
 
-	#ifdef LINUX
 	while(waitpid(-1, NULL, WNOHANG) > 0);
-	#endif
 
 	errno = saved_errno;
 }

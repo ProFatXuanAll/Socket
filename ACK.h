@@ -1,6 +1,7 @@
 #ifndef ACK_H
 #define ACK_H
 
+extern void ACK_init(unsigned long long int* num);
 extern void ACK_Set(unsigned long long int* num,char dst[],const char src[],unsigned long long int len);
 extern int ACK_Check(unsigned long long int* num,char src[],unsigned long long int* len);
 

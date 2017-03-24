@@ -2,12 +2,12 @@ CC=gcc
 
 all: lab1_file_transfer
 	
-lab1_file_transfer: main.o server.o client.o TCP.o UDP.o ACK.o log.o argsetup.h
-	${CC} -o lab1_file_transfer main.o server.o client.o TCP.o UDP.o ACK.o log.o
+lab1_file_transfer: main_linux.o server.o client.o TCP.o UDP.o ACK.o log.o argsetup.h
+	${CC} -o lab1_file_transfer main_linux.o server.o client.o TCP.o UDP.o ACK.o log.o
 	cp lab1_file_transfer ../
 	cp lab1_file_transfer ../testsock
-main.o: main.c server.h client.c argsetup.h
-	gcc -c main.c
+main_linux.o: main_linux.c server.h client.c argsetup.h
+	gcc -c main_linux.c
 server.o: server.c server.h TCP.h UDP.h argsetup.h
 	gcc -c server.c
 client.o: client.c client.h TCP.h UDP.h argsetup.h
