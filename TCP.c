@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 #include "argsetup.h"
 #include "TCP.h"
 #include "ACK.h"
@@ -13,6 +14,7 @@ extern void TCPS(char filename[], int cfd)
 	FILE* fptr;
 	char buffer[BUF_SIZE], fbuffer[BUF_SIZE];
 	unsigned long long int bytes_send, bytes_left, bytes_len_total, buf_ptr;
+	
 
 	fptr = fopen(filename,"rb");
 
@@ -72,14 +74,15 @@ extern void TCPS(char filename[], int cfd)
 
 		while(bytes_len_total != 0){
 			memset(buffer, 0, BUF_SIZE);
-			
-			bytes_left = 0;
+			bytes_left = (bytes_len_total > BUF_SIZE ? BUF_SIZE : bytes_len_total);
+			buf_ptr = 0;
 			
 			do{
-				bytes_left += fread(buffer + bytes_left, sizeof(char), BUF_SIZE - bytes_left, fptr);
-			}while(!feof(fptr) && bytes_left < BUF_SIZE);
+				buf_ptr += fread(buffer + buf_ptr, sizeof(char), bytes_left - buf_ptr, fptr);
+			}while(buf_ptr != bytes_left);
 			
 			buf_ptr = 0;
+			
 			do{
 				bytes_send = send(cfd, buffer + buf_ptr, bytes_left - buf_ptr, 0);
 			
@@ -92,7 +95,7 @@ extern void TCPS(char filename[], int cfd)
 				}
 
 				buf_ptr += bytes_send;
-			}while(bytes_left == buf_ptr);
+			}while(buf_ptr != bytes_left);
 
 			bytes_len_total -= bytes_left;
 		}
@@ -145,7 +148,7 @@ extern void TCPR(int sfd)
 	buf_ptr = 0;
 	memset(filelength, 0, BUF_SIZE);
 	do{
-		bytes_recv = recv(sfd, buffer + buf_ptr, BUF_SIZE - buf_ptr, 0);
+		bytes_recv = recv(sfd, filelength + buf_ptr, BUF_SIZE - buf_ptr, 0);
 		
 		if(bytes_recv < 0){
 			perror("[error] on receiving filename: ");
