@@ -50,6 +50,8 @@ extern void ClientStartUp(char Protocol[],char IP[],char Port[],char Filename[])
 			continue;
 		}
 
+#ifdef DEBUG
+
 		if(p->ai_family == AF_INET){	/* IPv4 */
 			if(inet_ntop(p->ai_family, &(((struct sockaddr_in*) p->ai_addr)->sin_addr), IP, strlen(IP)) != NULL){
 				printf("[client] server IPv4 address: %s\n",IP);
@@ -76,6 +78,7 @@ extern void ClientStartUp(char Protocol[],char IP[],char Port[],char Filename[])
 				exit(EXIT_FAILURE);
 			}
 		}
+#endif
 
 		break;
 	}

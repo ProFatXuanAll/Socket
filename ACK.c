@@ -17,10 +17,8 @@ extern int ACK_Check(unsigned long long int* num, char src[], unsigned long long
 {
 	char tmp[BUF_SIZE];
 	char tmp2, tmp3, tmp4;
-	strncpy(tmp, src, ACK_LEN);
-	tmp[ACK_LEN] = '\0';
 	
-	if(sscanf(tmp, "%c%llu%c%llu%c", &tmp2, num, &tmp3, len, &tmp4) != 5){
+	if(sscanf(src, "%c%llu%c%llu%c", &tmp2, num, &tmp3, len, &tmp4) != 5){
 		return -1;
 	}
 	else if(tmp2 != ACK[0] || tmp3 != ACK[ACK_NUM_MAX + 1] || tmp4 != ACK[ACK_LEN - 1]){

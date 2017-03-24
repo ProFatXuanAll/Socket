@@ -110,6 +110,7 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 			exit(EXIT_FAILURE);
 		}
 
+#ifdef DEBUG
 		/* Display the client's address */
 		if(clie_info.ss_family == AF_INET){	/* IPv4 version */
 			if(inet_ntop(AF_INET, &(((struct sockaddr_in*) &clie_info)->sin_addr), IP, strlen(IP)) != NULL){
@@ -139,6 +140,7 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 				exit(EXIT_FAILURE);
 			}
 		}
+#endif
 
 		if(tolower(Protocol[0])=='t'){	/* TCP:send */
 			TCPS(Filename,clie_sock_fd);
