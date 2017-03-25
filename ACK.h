@@ -11,8 +11,8 @@ extern int ACK_Check(unsigned long long int* num,char src[],unsigned long long i
 #define ACK_ENCODE "AxxxxooooxxxxooooxxxxCxxxxxK"
 #define ACK_LEN ((unsigned long long int)strlen(ACK_ENCODE))
 #define ACK_NUM_MAX (20)
-#define ACK_INIT (0)
-#define ACK_CNCA (1)
-static char ACK[]=ACK_ENCODE;
+#define ACK_FAIL (0)
+#define ACK_SUCCESS (1)
+#define ACK_ERROR (-1)
 
 #endif

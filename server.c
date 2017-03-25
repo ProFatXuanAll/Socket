@@ -9,7 +9,9 @@
 #include "TCP.h"
 #include "UDP.h"
 
+#ifdef DEBUG
 static void sigchld_handler(int s);
+#endif
 
 extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename[])
 {
@@ -27,9 +29,9 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;													/* either IPv4 or IPv6 */
 	hints.ai_socktype = (tolower(Protocol[0]) == 't' ? SOCK_STREAM : SOCK_DGRAM);	/* TCP or UDP socket stream */
-	/*hints.ai_flags = AI_PASSIVE;*/												/* automatically fill in IP */
+	hints.ai_flags = AI_PASSIVE;													/* automatically fill in IP */
 
-	status = getaddrinfo(IP, Port, &hints, &serv_info);
+	status = getaddrinfo(NULL, Port, &hints, &serv_info);
 
 	if(status != 0){	/* getaddrinfo function error check */
 		fprintf(stderr, "[error] on function getaddrinfo: %s\n", gai_strerror(status));
@@ -45,8 +47,9 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 			continue;
 		}
 
-		/* don't know what this is */
-		status = setsockopt(serv_sock_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+		
+		/* avoid the error message: "address already in use" */
+		//status = setsockopt(serv_sock_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 		if(status < 0){	/* sersockopt function error check */
 			perror("[error] on function setsockopt: ");
@@ -61,20 +64,20 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 			perror("[error] on function bind: ");
 			continue;
 		}
-
+		
 		break;
 	}
 	
+	if(p == NULL){
+		fprintf(stderr, "[error] failed to bind.\n");
+		exit(EXIT_FAILURE);
+	}
+		
 	/* all done with this structure */
 	freeaddrinfo(serv_info);
 
-	if(p == NULL){
-		fprintf(stderr, "[error] failed to bind.i\n");
-		exit(EXIT_FAILURE);
-	}
-
-	if(tolower(Protocol[0])=='t'){	/* TCP send */
-
+	if(tolower(Protocol[0])=='t'){	/* TCP receive */
+	
 		/* listening request */
 		status=listen(serv_sock_fd,BACKLOG);
 
@@ -83,6 +86,7 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 			exit(EXIT_FAILURE);
 		}
 
+#ifdef DEBUG
 		sa.sa_handler = sigchld_handler;	/* reap all dead processes */
 		sigemptyset(&sa.sa_mask);
 		sa.sa_flags = SA_RESTART;
@@ -90,6 +94,7 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 			perror("[error] on function sigaction: ");
 			exit(EXIT_FAILURE);
 		}
+#endif
 
 		printf("[server] waiting for connections by TCP...\n");
 
@@ -130,7 +135,7 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 			}
 		}
 #endif
-		TCPS(Filename, clie_sock_fd);
+		TCPR(clie_sock_fd);
 	
 		status=close(clie_sock_fd);
 	
@@ -139,12 +144,13 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 			close(serv_sock_fd);
 			exit(EXIT_FAILURE);
 		}
-	}	/* end TCP send */
-	else{	/* UDP send */
-		printf("[server] waiting for connections by TCP...\n");
+	}	/* end TCP receive */
+	else{	/* UDP receive */
+		printf("[server] waiting for connections by UDP...\n");
 		
-		UDPS(Filename,clie_sock_fd);
-	}	/* end UDP send */
+		UDPR(serv_sock_fd);
+	
+	}	/* end UDP receive */
 
 	status=close(serv_sock_fd);
 
@@ -155,6 +161,7 @@ extern void ServerStartUp(char Protocol[], char IP[], char Port[], char Filename
 
 }
 
+#ifdef DEBUG
 static void sigchld_handler(int s)
 {
 	/* waitpid() might overwrite errno, so we save and restore it. */
@@ -164,3 +171,4 @@ static void sigchld_handler(int s)
 
 	errno = saved_errno;
 }
+#endif

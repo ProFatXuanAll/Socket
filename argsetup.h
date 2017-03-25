@@ -20,6 +20,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 #endif
 
@@ -49,13 +50,19 @@
 #define BACKLOG (20)
 
 /************************************ 
+ *	client file name buffer size	*
+ ***********************************/
+#define NAME_SIZE_MAX (256)
+
+/************************************ 
  *	server send/recv buffer size	*
  ***********************************/
 #define BUF_SIZE ((unsigned long long int)512)
 
-/************************************ 
- *	client file name buffer size	*
+/************************************
+ *	some conditions need to be 		*
+ *	check, see main_$(OS).c			*
  ***********************************/
-#define NAME_SIZE_MAX (1024)
+#define BUILD_BUG_OR_ZERO(e) (sizeof(struct {int:-!!(e);}))
 
 #endif

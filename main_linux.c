@@ -6,11 +6,15 @@
 #include "argsetup.h"
 #include "server.h"
 #include "client.h"
+#include "ACK.h"
 
 static int CheckARGV(char* argv[]);
 
 int main(int argc, char* argv[])
 {
+	BUILD_BUG_OR_ZERO(BUF_SIZE < NAME_SIZE_MAX);
+	BUILD_BUG_OR_ZERO(BUF_SIZE < ACK_LEN);
+
 	if(argc < ARGC_MIN){	/* main function command line argument error check */
 		fprintf(stderr, "usage: ./server <protocol> <action> <ip> <port> [<file>]\n" );
 		exit(EXIT_FAILURE);
@@ -21,15 +25,15 @@ int main(int argc, char* argv[])
 		exit(EXIT_FAILURE);
 	}
 	
-	if(tolower(argv[2][0])=='s'){	/* send means server */
+	if(tolower(argv[2][0])=='s'){	/* send means client */
 		if(argc!=6){
 			fprintf(stderr, "[error] <file> input missing.");
 			exit(EXIT_FAILURE);
 		}
-		ServerStartUp(argv[1],argv[3],argv[4],argv[5]);
+		ClientStartUp(argv[1],argv[3],argv[4],argv[5]);
 	}
-	else{	/* receive means client */
-		ClientStartUp(argv[1],argv[3],argv[4],NULL);
+	else{	/* receive means server */
+		ServerStartUp(argv[1],argv[3],argv[4],NULL);
 	}
 
 	return 0;

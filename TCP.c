@@ -30,7 +30,7 @@ extern void TCPS(char filename[], int cfd)
 	do{
 		bytes_send = send(cfd, buffer + buf_ptr, BUF_SIZE - buf_ptr, 0);
 		
-		if(bytes_send < 0){
+		if(bytes_send <= 0){
 			perror("[error] on sendind filename: ");
 			close(cfd); 
 			exit(EXIT_FAILURE);
@@ -49,7 +49,7 @@ extern void TCPS(char filename[], int cfd)
 	do{
 		bytes_send = send(cfd, buffer + buf_ptr, BUF_SIZE - buf_ptr, 0);
 		
-		if(bytes_send < 0){
+		if(bytes_send <= 0){
 			perror("[error] on sendind file length: ");
 			close(cfd); 
 			exit(EXIT_FAILURE);
@@ -78,7 +78,7 @@ extern void TCPS(char filename[], int cfd)
 			do{
 				bytes_send = send(cfd, buffer + buf_ptr, bytes_left - buf_ptr, 0);
 			
-				if(bytes_send < 0){
+				if(bytes_send <= 0){
 					perror("[error] on sendind file content: ");
 					close(cfd); 
 					exit(EXIT_FAILURE);
@@ -110,7 +110,7 @@ extern void TCPR(int sfd)
 	do{
 		bytes_recv = recv(sfd, filename + buf_ptr, BUF_SIZE - buf_ptr, 0);
 		
-		if(bytes_recv < 0){
+		if(bytes_recv <= 0){
 			perror("[error] on receiving filename: ");
 			close(sfd);
 			exit(EXIT_FAILURE);
@@ -120,7 +120,7 @@ extern void TCPR(int sfd)
 	}while(buf_ptr != BUF_SIZE);
 	/* end receive file name */
 
-	printf("[client] filename received: %s\n", filename);
+	printf("[server] filename received: %s\n", filename);
 
 	fptr = fopen(filename, "wb");
 	
@@ -136,7 +136,7 @@ extern void TCPR(int sfd)
 	do{
 		bytes_recv = recv(sfd, filelength + buf_ptr, BUF_SIZE - buf_ptr, 0);
 		
-		if(bytes_recv < 0){
+		if(bytes_recv <= 0){
 			perror("[error] on receiving filename: ");
 			close(sfd);
 			exit(EXIT_FAILURE);
@@ -154,7 +154,7 @@ extern void TCPR(int sfd)
 	resetlog(&next);
 	/* end log relative initialization */
 
-	printf("[client] file length received: %llu\n", bytes_len_total);
+	printf("[server] file length received: %llu\n", bytes_len_total);
 
 	/* receive file content */
 	if(bytes_len_total != 0){
@@ -167,7 +167,7 @@ extern void TCPR(int sfd)
 			do{
 				bytes_recv = recv(sfd, buffer + buf_ptr, bytes_write - buf_ptr, 0);
 			
-				if(bytes_recv < 0){
+				if(bytes_recv <= 0){
 					perror("[error] on writing file: ");
 					close(sfd);
 					exit(EXIT_FAILURE);
@@ -180,7 +180,7 @@ extern void TCPR(int sfd)
 
 			do{
 				buf_ptr += fwrite(buffer + buf_ptr, sizeof(char), bytes_write - buf_ptr, fptr);
-					if(bytes_write < 0){
+					if(bytes_write <= 0){
 						perror("[error] on writing file: ");
 						close(sfd);
 						exit(EXIT_FAILURE);
@@ -194,7 +194,7 @@ extern void TCPR(int sfd)
 	}
 	/* end receive file content */
 
-	printf("[client] file content received.\n");
+	printf("[server] file content received.\n");
 
 	fclose(fptr);
 	/* end receive file connent */

@@ -39,58 +39,62 @@ extern void ClientStartUp(char Protocol[],char IP[],char Port[],char Filename[])
 			continue;
 		}
 
-		/* connect to server socket */
-		status = connect(serv_sock_fd, p->ai_addr, p->ai_addrlen);
+		if(tolower(Protocol[0])=='t'){	/* TCP:receive */
+			/* connect to server socket */
+			status = connect(serv_sock_fd, p->ai_addr, p->ai_addrlen);
 
-		if(status < 0){	/* connect function error check */
-			perror("[error] on function connect: ");
-			close(serv_sock_fd);
-			continue;
-		}
+			if(status < 0){	/* connect function error check */
+				perror("[error] on function connect: ");
+				close(serv_sock_fd);
+				continue;
+			}
 
 #ifdef DEBUG
 
-		if(p->ai_family == AF_INET){	/* IPv4 */
-			if(inet_ntop(p->ai_family, &(((struct sockaddr_in*) p->ai_addr)->sin_addr), IP, strlen(IP)) != NULL){
-				printf("[client] server IPv4 address: %s\n",IP);
-				printf("[client] port: %d\n", ntohs(((struct sockaddr_in*) p->ai_addr)->sin_port));
+			if(p->ai_family == AF_INET){	/* IPv4 */
+				if(inet_ntop(p->ai_family, &(((struct sockaddr_in*) p->ai_addr)->sin_addr), IP, strlen(IP)) != NULL){
+					printf("[client] server IPv4 address: %s\n",IP);
+					printf("[client] port: %d\n", ntohs(((struct sockaddr_in*) p->ai_addr)->sin_port));
+				}
+				else{
+					fprintf(stderr, "[error] on conver IPv4 address.\n");
+					close(serv_sock_fd);
+					exit(EXIT_FAILURE);
+				}
 			}
-			else{
-				fprintf(stderr, "[error] on conver IPv4 address.\n");
-				close(serv_sock_fd);
-				exit(EXIT_FAILURE);
+			else{	/* IPv6 */
+				if(inet_ntop(p->ai_family, &(((struct sockaddr_in6*) p->ai_addr)->sin6_addr), IP, strlen(IP)) != NULL){
+					printf("[client] server IPv4 address: %s\n",IP);
+					printf("[client] port: %d\n", ntohs(((struct sockaddr_in6*) p->ai_addr)->sin6_port));
+				}
+				else{
+					fprintf(stderr, "[error] on conver IPv6 address.\n");
+					close(serv_sock_fd);
+					exit(EXIT_FAILURE);
+				}
 			}
-		}
-		else{	/* IPv6 */
-			if(inet_ntop(p->ai_family, &(((struct sockaddr_in6*) p->ai_addr)->sin6_addr), IP, strlen(IP)) != NULL){
-				printf("[client] server IPv4 address: %s\n",IP);
-				printf("[client] port: %d\n", ntohs(((struct sockaddr_in6*) p->ai_addr)->sin6_port));
-			}
-			else{
-				fprintf(stderr, "[error] on conver IPv6 address.\n");
-				close(serv_sock_fd);
-				exit(EXIT_FAILURE);
-			}
-		}
 #endif
-
-		break;
+			break;
+		}
+		else{	/* UDP:receive */
+			break;
+		}
 	}
-
-	/* all done with this structure */
-	freeaddrinfo(serv_info);
 
 	if(p == NULL){	/* failed to connnect */
 		fprintf(stderr, "[error] failed to connect\n");
 		exit(EXIT_FAILURE);
 	}
 
-	if(tolower(Protocol[0])=='t'){	/* TCP:receive */
-		TCPR(serv_sock_fd);
+	if(tolower(Protocol[0])=='t'){	/* TCP:send */
+		TCPS(Filename, serv_sock_fd);
 	}
-	else{	/* UDP:receive */
-		UDPR(serv_sock_fd);
+	else{	/* UDP:send */
+		UDPS(Filename, serv_sock_fd, p);
 	}
+	
+	/* all done with this structure */
+	freeaddrinfo(serv_info);
 
 	status=close(serv_sock_fd);
 
