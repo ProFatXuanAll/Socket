@@ -9,11 +9,12 @@
 
 static unsigned long long int getFileSize(FILE* fptr);
 
-extern void UDPS(char filename[], int cfd, struct addrinfo* send_info)
+extern void UDPS(char filename[], int sfd, struct addrinfo* send_info)
 {
 	FILE* fptr;
 	char buffer[BUF_SIZE + ACK_LEN], fbuffer[BUF_SIZE], ACKbuffer[ACK_LEN];
-	unsigned long long int bytes_send, bytes_recv, bytes_left, bytes_read, bytes_len_total, buf_ptr;
+	unsigned long long int bytes_len_total;
+	int bytes_send, bytes_recv, bytes_left, bytes_read, buf_ptr;
 	unsigned long long int ACK_counter;
 	int ACK_status;
 	struct sockaddr recv_info;
@@ -24,14 +25,14 @@ extern void UDPS(char filename[], int cfd, struct addrinfo* send_info)
 
 	if(fptr == NULL){	/* fopen function error check */
 		perror("[error] file open failure: ");
-		close(cfd); 
+		close(sfd); 
 		exit(EXIT_FAILURE);
 	}
 
 	ACK_init(&ACK_counter);
 	addr_len = sizeof(addr_len);
 
-	//fcntl(cfd, F_SETFL, O_NONBLOCK);	/* set socket non-blocking for polling */
+	fcntl(sfd, F_SETFL, O_NONBLOCK);	/* set socket non-blocking for polling */
 	/* end startup initialization */
 
 	/* send file name */
@@ -41,40 +42,43 @@ extern void UDPS(char filename[], int cfd, struct addrinfo* send_info)
 	do{
 		buf_ptr = 0;
 		do{
-			bytes_send = sendto(cfd, buffer + buf_ptr, BUF_SIZE + ACK_LEN - buf_ptr, 0, send_info->ai_addr, send_info->ai_addrlen);
+			bytes_send = sendto(sfd, buffer + buf_ptr, BUF_SIZE + ACK_LEN - buf_ptr, 0, send_info->ai_addr, send_info->ai_addrlen);
 			if(bytes_send <= 0){
 				perror("[error] on sendind filename: ");
-				close(cfd); 
+				close(sfd); 
 				exit(EXIT_FAILURE);
 			}
 	
 			buf_ptr += bytes_send;
 		}while(bytes_left != buf_ptr);
 
-		//usleep(USEC_SLEEP);
+		usleep(USEC_SLEEP);	/* minimum time to wait for package arrive */
 		buf_ptr = 0;
 		do{
-			bytes_recv = recvfrom(cfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, &addr_len);
+			bytes_recv = recvfrom(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, &addr_len);
 
 			if(bytes_recv <= 0){
-				perror("[error] on receiving filename ACK: ");
-				close(cfd); 
-				exit(EXIT_FAILURE);
+				if(errno == EWOULDBLOCK){	/* doesn't get anything */
+					break;
+				}
+				else{
+					perror("[error] on receiving filename ACK: ");
+					close(sfd); 
+					exit(EXIT_FAILURE);
+				}
 			}
+			
 			buf_ptr += bytes_recv;
 		}while(buf_ptr != ACK_LEN);
 
-		if((ACK_status = ACK_Check(&ACK_counter, ACKbuffer, NULL)) == ACK_ERROR){
+		if((ACK_status = ACK_Check(&ACK_counter, ACKbuffer, NULL)) == ACK_FAIL){
 			fprintf(stderr, "[error] on received filename ACK check failed.\n");
-			close(cfd);
-			exit(EXIT_FAILURE);
 		}
 	}while(ACK_status == ACK_FAIL);
 	/* end send file name */
 
 	printf("[client] filename sent.\n");
 
-#ifdef DEBUG
 	/* send file length */
 	memset(buffer, 0, BUF_SIZE + ACK_LEN);
 	memset(fbuffer, 0, BUF_SIZE);
@@ -85,33 +89,37 @@ extern void UDPS(char filename[], int cfd, struct addrinfo* send_info)
 	do{
 		buf_ptr = 0;
 		do{
-			bytes_send = sendto(cfd, buffer + buf_ptr, BUF_SIZE + ACK_LEN - buf_ptr, 0, send_info->ai_addr, send_info->ai_addrlen);
+			bytes_send = sendto(sfd, buffer + buf_ptr, BUF_SIZE + ACK_LEN - buf_ptr, 0, send_info->ai_addr, send_info->ai_addrlen);
 		
 			if(bytes_send <= 0){
 				perror("[error] on sendind file length: ");
-				close(cfd); 
+				close(sfd); 
 				exit(EXIT_FAILURE);
 			}
 		
 			buf_ptr += bytes_send;
 		}while(bytes_left != buf_ptr);
 
+		usleep(USEC_SLEEP);	/* minimum time to wait for package arrive */
 		buf_ptr = 0;
 		do{
-			bytes_recv = recvfrom(cfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, &addr_len);
+			bytes_recv = recvfrom(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, &addr_len);
 
 			if(bytes_recv <= 0){
-				perror("[error] on receiving filename ACK: ");
-				close(cfd); 
-				exit(EXIT_FAILURE);
+				if(errno == EWOULDBLOCK){
+					break;
+				}
+				else{
+					perror("[error] on receiving file length ACK: ");
+					close(sfd); 
+					exit(EXIT_FAILURE);
+				}
 			}
 			buf_ptr += bytes_recv;
 		}while(buf_ptr != ACK_LEN);
 
-		if((ACK_status = ACK_Check(&ACK_counter, ACKbuffer, NULL)) == ACK_ERROR){
-			fprintf(stderr, "[error] on received filename ACK check failed.\n");
-			close(cfd);
-			exit(EXIT_FAILURE);
+		if((ACK_status = ACK_Check(&ACK_counter, ACKbuffer, NULL)) == ACK_FAIL){
+			fprintf(stderr, "[error] on received file length ACK check failed.\n");
 		}
 	}while(ACK_status == ACK_FAIL);
 	/* end send file length */
@@ -129,7 +137,7 @@ extern void UDPS(char filename[], int cfd, struct addrinfo* send_info)
 		
 			if(bytes_read <= 0){
 				perror("[error] on reading file content: ");
-				close(cfd);
+				close(sfd);
 				exit(EXIT_FAILURE);
 			}
 
@@ -143,41 +151,44 @@ extern void UDPS(char filename[], int cfd, struct addrinfo* send_info)
 		do{
 			buf_ptr = 0;
 			do{
-				bytes_send = sendto(cfd, buffer + buf_ptr, bytes_left - buf_ptr, 0, send_info->ai_addr, send_info->ai_addrlen);
+				bytes_send = sendto(sfd, buffer + buf_ptr, bytes_left - buf_ptr, 0, send_info->ai_addr, send_info->ai_addrlen);
 			
 				if(bytes_send <= 0){
 					perror("[error] on sendind file content: ");
-					close(cfd); 
+					close(sfd); 
 					exit(EXIT_FAILURE);
 				}
 
 				buf_ptr += bytes_send;
 			}while(bytes_left != buf_ptr);
 		
+			usleep(USEC_SLEEP);	/* minimum time to wait for package arrive */
 			buf_ptr = 0;
 			do{
-				bytes_recv = recvfrom(cfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, &addr_len);
+				bytes_recv = recvfrom(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, &addr_len);
 
 				if(bytes_recv <= 0){
-					perror("[error] on receiving filename ACK: ");
-					close(cfd); 
-					exit(EXIT_FAILURE);
+					if(errno == EWOULDBLOCK){
+						break;
+					}
+					else{
+						perror("[error] on receiving filename ACK: ");
+						close(sfd); 
+						exit(EXIT_FAILURE);
+					}
 				}
 				buf_ptr += bytes_recv;
 			}while(buf_ptr != ACK_LEN);
 
-			if((ACK_status = ACK_Check(&ACK_counter, ACKbuffer, NULL)) == ACK_ERROR){
-				fprintf(stderr, "[error] on received filename ACK check failed.\n");
-				close(cfd);
-				exit(EXIT_FAILURE);
+			if((ACK_status = ACK_Check(&ACK_counter, ACKbuffer, NULL)) == ACK_FAIL){
+				fprintf(stderr, "[error] on received file content ACK check failed.\n");
 			}
 		}while(ACK_status == ACK_FAIL);
 
 		bytes_len_total -= (bytes_left - ACK_LEN);
 	}
 	
-	printf("[client] filename content.\n");
-#endif
+	printf("[client] file content sent.\n");
 
 	fclose(fptr);
 	/* end send file connent */
@@ -190,7 +201,8 @@ extern void UDPR(int sfd)
 	char filename[BUF_SIZE];
 	char filelength[BUF_SIZE];
 	char ACKbuffer[ACK_LEN];
-	unsigned long long int bytes_send, bytes_recv, bytes_will_get, bytes_write, bytes_len_total, buf_ptr;
+	unsigned long long int bytes_len_total;
+	int bytes_send, bytes_recv, bytes_will_get, bytes_write, buf_ptr;
 	unsigned long long int ACK_counter, ACK_bytes_len;
 	int ACK_status;
 	struct sockaddr recv_info;
@@ -254,7 +266,6 @@ extern void UDPR(int sfd)
 		exit(EXIT_FAILURE);
 	}
 
-#ifdef DEBUG
 	/* receive file length */
 	memset(buffer, 0, BUF_SIZE + ACK_LEN);
 	memset(ACKbuffer, 0, ACK_LEN);
@@ -363,7 +374,6 @@ extern void UDPR(int sfd)
 	/* end receive file content */
 
 	printf("[server] file content received.\n");
-#endif
 
 	fclose(fptr);
 	/* end receive file connent */

@@ -30,17 +30,17 @@ extern int ACK_Check(unsigned long long int* num, char src[], unsigned long long
 
 	if(num == NULL){
 		fprintf(stderr, "[error] in function ACK_Check: serialize number pointer is NULL.\n");
-		return ACK_ERROR;
+		return ACK_FAIL;
 	}
 	else if(src == NULL){
 		fprintf(stderr, "[error] in function ACK_Check: source message pointer is NULL.\n");
-		return ACK_ERROR;
+		return ACK_FAIL;
 	}
 	else if(sscanf(src, "%c%20llu%c%20llu%c", &tmp2, &ACK_num, &tmp3, &ACK_len, &tmp4) != 5){
-		return ACK_ERROR;
+		return ACK_FAIL;
 	}
 	else if(tmp2 != ACK[0] || tmp3 != ACK[ACK_NUM_MAX + 1] || tmp4 != ACK[ACK_LEN - 1]){
-		return ACK_ERROR;
+		return ACK_FAIL;
 	}
 	else if(ACK_num == *num){
 		if(len != NULL){

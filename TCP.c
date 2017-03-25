@@ -12,7 +12,8 @@ extern void TCPS(char filename[], int cfd)
 {
 	FILE* fptr;
 	char buffer[BUF_SIZE], fbuffer[BUF_SIZE];
-	unsigned long long int bytes_send, bytes_left, bytes_len_total, buf_ptr;
+	unsigned long long int bytes_len_total;
+	int bytes_send, bytes_left, buf_ptr;
 
 	fptr = fopen(filename,"rb");
 
@@ -101,7 +102,8 @@ extern void TCPR(int sfd)
 	char buffer[BUF_SIZE];
 	char filename[BUF_SIZE];
 	char filelength[BUF_SIZE];
-	unsigned long long int bytes_recv, bytes_len_total, bytes_write, buf_ptr;
+	unsigned long long int bytes_len_total;
+	int bytes_recv, bytes_write, buf_ptr;
 	unsigned long long int numerator, denominator, next;
 
 	/* receive file name first */
