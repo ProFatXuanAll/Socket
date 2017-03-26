@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 #include "argsetup.h"
 #include "UDP.h"
 #include "ACK.h"
@@ -19,6 +20,8 @@ extern void UDPS(char filename[], int sfd, struct addrinfo* send_info)
 	int ACK_status;
 	struct sockaddr recv_info;
 	socklen_t addr_len;
+	int log_lost, log_total;
+	clock_t log_start, log_end;
 
 	/* startup initialization */
 	fptr = fopen(filename,"rb");
@@ -31,8 +34,11 @@ extern void UDPS(char filename[], int sfd, struct addrinfo* send_info)
 
 	ACK_init(&ACK_counter);
 	addr_len = sizeof(addr_len);
+	log_lost = 0;
 
 	fcntl(sfd, F_SETFL, O_NONBLOCK);	/* set socket non-blocking for polling */
+
+	log_start = clock();
 	/* end startup initialization */
 
 	/* send file name */
@@ -52,7 +58,8 @@ extern void UDPS(char filename[], int sfd, struct addrinfo* send_info)
 			buf_ptr += bytes_send;
 		}while(bytes_left != buf_ptr);
 
-		usleep(USEC_SLEEP);	/* minimum time to wait for package arrive */
+		usleep(UDP_USEC_SLEEP_TO_RECV);	/* minimum time to wait for package arrive */
+		memset(ACKbuffer, 0, ACK_LEN);
 		buf_ptr = 0;
 		do{
 			bytes_recv = recvfrom(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, &addr_len);
@@ -72,9 +79,16 @@ extern void UDPS(char filename[], int sfd, struct addrinfo* send_info)
 		}while(buf_ptr != ACK_LEN);
 
 		if((ACK_status = ACK_Check(&ACK_counter, ACKbuffer, NULL)) == ACK_FAIL){
-			fprintf(stderr, "[error] on received filename ACK check failed.\n");
+			fprintf(stderr, "[error] on receiving filename ACK check failed.\n");
+			log_lost += ACK_LEN;
+			usleep(UDP_USEC_SLEEP_TO_RESEND);
+			continue;
 		}
-	}while(ACK_status == ACK_FAIL);
+		else if(ACK_status == ACK_REPEAT){
+			//fprintf(stderr, "[error] on receving file content AKC check repeat.\n");
+			usleep(UDP_USEC_SLEEP_TO_RESEND);
+		}
+	}while(ACK_status != ACK_SUCCESS);
 	/* end send file name */
 
 	printf("[client] filename sent.\n");
@@ -100,7 +114,8 @@ extern void UDPS(char filename[], int sfd, struct addrinfo* send_info)
 			buf_ptr += bytes_send;
 		}while(bytes_left != buf_ptr);
 
-		usleep(USEC_SLEEP);	/* minimum time to wait for package arrive */
+		usleep(UDP_USEC_SLEEP_TO_RECV);	/* minimum time to wait for package arrive */
+		memset(ACKbuffer, 0, ACK_LEN);
 		buf_ptr = 0;
 		do{
 			bytes_recv = recvfrom(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, &addr_len);
@@ -119,15 +134,23 @@ extern void UDPS(char filename[], int sfd, struct addrinfo* send_info)
 		}while(buf_ptr != ACK_LEN);
 
 		if((ACK_status = ACK_Check(&ACK_counter, ACKbuffer, NULL)) == ACK_FAIL){
-			fprintf(stderr, "[error] on received file length ACK check failed.\n");
+			fprintf(stderr, "[error] on receiving file length ACK check failed.\n");
+			log_lost += ACK_LEN;
+			usleep(UDP_USEC_SLEEP_TO_RESEND);
+			continue;
 		}
-	}while(ACK_status == ACK_FAIL);
+		else if(ACK_status == ACK_REPEAT){
+			//fprintf(stderr, "[error] on receving file content AKC check repeat.\n");
+			usleep(UDP_USEC_SLEEP_TO_RESEND);
+		}
+	}while(ACK_status != ACK_SUCCESS);
 	/* end send file length */
 
 	printf("[client] file length sent.\n");
 
 	/* send file content */
 	bytes_len_total = getFileSize(fptr);
+	log_total = (bytes_len_total / BUF_SIZE + (bytes_len_total % BUF_SIZE == 0 ? 0 : 1) + 2) * ACK_LEN;
 	while(bytes_len_total != 0){
 		memset(fbuffer, 0, BUF_SIZE);
 		bytes_left = (bytes_len_total >= BUF_SIZE ? BUF_SIZE : bytes_len_total);
@@ -162,7 +185,8 @@ extern void UDPS(char filename[], int sfd, struct addrinfo* send_info)
 				buf_ptr += bytes_send;
 			}while(bytes_left != buf_ptr);
 		
-			usleep(USEC_SLEEP);	/* minimum time to wait for package arrive */
+			usleep(UDP_USEC_SLEEP_TO_RECV);	/* minimum time to wait for package arrive */
+			memset(ACKbuffer, 0, ACK_LEN);
 			buf_ptr = 0;
 			do{
 				bytes_recv = recvfrom(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, &addr_len);
@@ -172,7 +196,7 @@ extern void UDPS(char filename[], int sfd, struct addrinfo* send_info)
 						break;
 					}
 					else{
-						perror("[error] on receiving filename ACK: ");
+						perror("[error] on receiving file content ACK: ");
 						close(sfd); 
 						exit(EXIT_FAILURE);
 					}
@@ -181,14 +205,26 @@ extern void UDPS(char filename[], int sfd, struct addrinfo* send_info)
 			}while(buf_ptr != ACK_LEN);
 
 			if((ACK_status = ACK_Check(&ACK_counter, ACKbuffer, NULL)) == ACK_FAIL){
-				fprintf(stderr, "[error] on received file content ACK check failed.\n");
+				fprintf(stderr, "[error] on receiving file content ACK check failed.\n");
+				log_lost += ACK_LEN;
+				usleep(UDP_USEC_SLEEP_TO_RESEND);
+				continue;
 			}
-		}while(ACK_status == ACK_FAIL);
+			else if(ACK_status == ACK_REPEAT){
+				//fprintf(stderr, "[error] on receving file content AKC check repeat.\n");
+				usleep(UDP_USEC_SLEEP_TO_RESEND);
+			}
+		}while(ACK_status != ACK_SUCCESS);
 
 		bytes_len_total -= (bytes_left - ACK_LEN);
 	}
 	
+	log_end = clock();
+	
 	printf("[client] file content sent.\n");
+
+	printLostRate(log_lost, log_total);
+	printThroughput(log_total, log_end - log_start);
 
 	fclose(fptr);
 	/* end send file connent */
@@ -207,10 +243,16 @@ extern void UDPR(int sfd)
 	int ACK_status;
 	struct sockaddr recv_info;
 	socklen_t addr_len;
+	unsigned long long int log_recv, log_total, log_cur, log_lost;
+	clock_t log_start, log_end;
 
 	/* startup initialization */
 	ACK_init(&ACK_counter);
 	addr_len = sizeof(recv_info);
+	log_recv=0;
+	log_lost=0;
+	resetLog(&log_cur);
+	log_start = clock();
 	/* end startup initialization */
 
 	/* receive file name first */
@@ -229,27 +271,32 @@ extern void UDPR(int sfd)
 			buf_ptr += bytes_recv;
 		}while(bytes_will_get != buf_ptr);
 	
-		if((ACK_status = ACK_Check(&ACK_counter, buffer, &ACK_bytes_len)) == ACK_ERROR){
+		if((ACK_status = ACK_Check(&ACK_counter, buffer, &ACK_bytes_len)) == ACK_FAIL){
 			fprintf(stderr, "[error] on received filename ACK check failed.\n");
-			exit(EXIT_FAILURE);
+			log_lost += ACK_bytes_len;
+			continue;
 		}
-
-		if(ACK_status == ACK_SUCCESS){	/* ACK check success */	
-			ACK_Set(&ACK_counter, ACKbuffer, "", 0);
-			buf_ptr=0;
-			do{
-				bytes_send = sendto(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, addr_len);
-			
-				if(bytes_send <= 0){
-					perror("[error] on sending filename ACK: ");
-					close(sfd);
-					exit(EXIT_FAILURE);
-				}
-			
-				buf_ptr += bytes_send;
-			}while(buf_ptr != ACK_LEN);
+		else if(ACK_status == ACK_REPEAT){	/* ACK check repeat */	
+			ACK_LastStep(&ACK_counter);	/* set ACK_counter to last step */
+			printf("file name repeat\n");
 		}
-	}while(ACK_status == ACK_FAIL);	/* redo on ACK check failed */
+		
+		/* ACK check success or repeat, both need to resend ACK */
+		ACK_Set(&ACK_counter, ACKbuffer, "", 0);
+		buf_ptr=0;
+		do{
+			bytes_send = sendto(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, addr_len);
+		
+			if(bytes_send <= 0){
+				perror("[error] on sending filename ACK: ");
+				close(sfd);
+				exit(EXIT_FAILURE);
+			}
+		
+			buf_ptr += bytes_send;
+		}while(buf_ptr != ACK_LEN);
+		
+	}while(ACK_status != ACK_SUCCESS);	/* redo on ACK check failed */
 
 	buffer[ACK_bytes_len]='\0';
 	memset(filename, 0, BUF_SIZE);
@@ -284,27 +331,31 @@ extern void UDPR(int sfd)
 			buf_ptr += bytes_recv;
 		}while(bytes_will_get != buf_ptr);
 	
-		if((ACK_status = ACK_Check(&ACK_counter, buffer, &ACK_bytes_len)) == ACK_ERROR){
+		if((ACK_status = ACK_Check(&ACK_counter, buffer, &ACK_bytes_len)) == ACK_FAIL){
 			fprintf(stderr, "[error] on received filename ACK check failed.\n");
-			exit(EXIT_FAILURE);
+			log_lost += ACK_bytes_len;
+			continue;
 		}
+		else if(ACK_status == ACK_REPEAT){	/* ACK check repeat */	
+			ACK_LastStep(&ACK_counter);	/* set ACK_counter to last step */
+			printf("file length repeat\n");
+		}
+	
+		/* ACK check success or repeat, both need to resend ACK */
+		ACK_Set(&ACK_counter, ACKbuffer, "", 0);
+		buf_ptr=0;
+		do{
+			bytes_send = sendto(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, addr_len);
+			
+			if(bytes_send <= 0){
+				perror("[error] on sending filename ACK: ");
+				close(sfd);
+				exit(EXIT_FAILURE);
+			}
 		
-		if(ACK_status == ACK_SUCCESS){	/* ACK check success */	
-			ACK_Set(&ACK_counter, ACKbuffer, "", 0);
-			buf_ptr=0;
-			do{
-				bytes_send = sendto(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, addr_len);
-			
-				if(bytes_send <= 0){
-					perror("[error] on sending filename ACK: ");
-					close(sfd);
-					exit(EXIT_FAILURE);
-				}
-			
-				buf_ptr += bytes_send;
-			}while(buf_ptr != ACK_LEN);
-		}
-	}while(ACK_status == ACK_FAIL);
+			buf_ptr += bytes_send;
+		}while(buf_ptr != ACK_LEN);
+	}while(ACK_status != ACK_SUCCESS);
 
 	buffer[ACK_bytes_len]='\0';
 	memset(filelength, 0, BUF_SIZE);
@@ -312,6 +363,7 @@ extern void UDPR(int sfd)
 	/* end receive file length */
 	
 	bytes_len_total = strtoull(filelength,NULL,10);
+	log_total = bytes_len_total;
 
 	printf("[server] file length received: %llu\n", bytes_len_total);
 
@@ -334,27 +386,31 @@ extern void UDPR(int sfd)
 				buf_ptr += bytes_recv;
 			}while(bytes_will_get != buf_ptr);
 			
-			if((ACK_status = ACK_Check(&ACK_counter, buffer, &ACK_bytes_len)) == ACK_ERROR){
+			if((ACK_status = ACK_Check(&ACK_counter, buffer, &ACK_bytes_len)) == ACK_FAIL){
 				fprintf(stderr, "[error] on received filename ACK check failed.\n");
-				exit(EXIT_FAILURE);
+				log_lost += ACK_bytes_len;
+				continue;
 			}
+			else if(ACK_status == ACK_REPEAT){	/* ACK check repeat */	
+				ACK_LastStep(&ACK_counter);	/* set ACK_counter to last step */
+			}
+
+			/* ACK check success or repeat, both need to resend ACK */
+			ACK_Set(&ACK_counter, ACKbuffer, "", 0);
+			buf_ptr=0;
+			do{
+				bytes_send = sendto(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, addr_len);
 		
-			if(ACK_status == ACK_SUCCESS){	/* ACK check success */	
-				ACK_Set(&ACK_counter, ACKbuffer, "", 0);
-				buf_ptr=0;
-				do{
-					bytes_send = sendto(sfd, ACKbuffer + buf_ptr, ACK_LEN - buf_ptr, 0, &recv_info, addr_len);
+				if(bytes_send <= 0){
+					perror("[error] on sending filename ACK: ");
+					close(sfd);
+					exit(EXIT_FAILURE);
+				}
 			
-					if(bytes_send <= 0){
-						perror("[error] on sending filename ACK: ");
-						close(sfd);
-						exit(EXIT_FAILURE);
-					}
-				
-					buf_ptr += bytes_send;
-				}while(buf_ptr != ACK_LEN);
-			}
-		}while(ACK_status == ACK_FAIL);
+				buf_ptr += bytes_send;
+			}while(buf_ptr != ACK_LEN);
+		}while(ACK_status != ACK_SUCCESS);
+		
 		buf_ptr = 0;
 		
 		do{
@@ -370,10 +426,17 @@ extern void UDPR(int sfd)
 		}while(ACK_bytes_len != buf_ptr);
 
 		bytes_len_total -= ACK_bytes_len;
+		log_recv += ACK_bytes_len;
+		printLog(log_recv, log_total, &log_cur);
 	}
 	/* end receive file content */
-
+	
+	log_end = clock();
+	
 	printf("[server] file content received.\n");
+
+	printLostRate(log_lost, log_total + 2 * BUF_SIZE);
+	printThroughput(log_total + 2 * BUF_SIZE, log_end - log_start);
 
 	fclose(fptr);
 	/* end receive file connent */

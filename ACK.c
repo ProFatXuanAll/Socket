@@ -22,6 +22,16 @@ extern void ACK_Set(unsigned long long int* num, char dst[], const char src[], u
 	(*num)++;
 }
 
+extern void ACK_LastStep(unsigned long long int* num)
+{
+	if(num!=NULL){
+		(*num)--;
+	}
+	else{
+		fprintf(stderr, "[error] in function ACK_LastStep: serialize number pointer is NULL.\n");
+	}
+}
+
 extern int ACK_Check(unsigned long long int* num, char src[], unsigned long long int* len)
 {
 	char tmp[BUF_SIZE];
@@ -42,7 +52,10 @@ extern int ACK_Check(unsigned long long int* num, char src[], unsigned long long
 	else if(tmp2 != ACK[0] || tmp3 != ACK[ACK_NUM_MAX + 1] || tmp4 != ACK[ACK_LEN - 1]){
 		return ACK_FAIL;
 	}
-	else if(ACK_num == *num){
+	else if(ACK_num < *num){	/* get repeated message */
+		return ACK_REPEAT;
+	}
+	else if(ACK_num == *num){	/* success */
 		if(len != NULL){
 			*len = ACK_len;
 			for(i=0;i<ACK_len;i++){
@@ -56,6 +69,7 @@ extern int ACK_Check(unsigned long long int* num, char src[], unsigned long long
 		(*num)++;
 		return ACK_SUCCESS;
 	}
-
-	return ACK_FAIL;
+	else{
+		return ACK_FAIL;
+	}
 }

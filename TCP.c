@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 #include "argsetup.h"
 #include "TCP.h"
 #include "log.h"
@@ -104,7 +105,10 @@ extern void TCPR(int sfd)
 	char filelength[BUF_SIZE];
 	unsigned long long int bytes_len_total;
 	int bytes_recv, bytes_write, buf_ptr;
-	unsigned long long int numerator, denominator, next;
+	unsigned long long int log_recv, log_total, log_cur;
+	clock_t log_start, log_end;
+
+	log_start = clock();
 
 	/* receive file name first */
 	buf_ptr = 0;
@@ -151,9 +155,9 @@ extern void TCPR(int sfd)
 	bytes_len_total = strtoull(filelength,NULL,10);
 	
 	/* log relative initialization */
-	denominator = bytes_len_total;
-	numerator = 0;
-	resetlog(&next);
+	log_total = bytes_len_total;
+	log_recv = 0;
+	resetLog(&log_cur);
 	/* end log relative initialization */
 
 	printf("[server] file length received: %llu\n", bytes_len_total);
@@ -190,13 +194,17 @@ extern void TCPR(int sfd)
 			}while(buf_ptr != bytes_write);
 
 			bytes_len_total -= bytes_write;
-			numerator += bytes_write;
-			printlog(numerator, denominator,&next);
+			log_recv += bytes_write;
+			printLog(log_recv, log_total,&log_cur);
 		}
 	}
 	/* end receive file content */
 
+	log_end = clock();
+
 	printf("[server] file content received.\n");
+
+	printThroughput(log_total + 2 * BUF_SIZE, log_end - log_start);
 
 	fclose(fptr);
 	/* end receive file connent */
