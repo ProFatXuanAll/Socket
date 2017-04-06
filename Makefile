@@ -4,8 +4,6 @@ all: lab1_file_transfer
 	
 lab1_file_transfer: main_linux.o server.o client.o TCP.o UDP.o ACK.o log.o argsetup.h
 	${CC} -o lab1_file_transfer main_linux.o server.o client.o TCP.o UDP.o ACK.o log.o
-	cp lab1_file_transfer ../
-	cp lab1_file_transfer ../testsock
 main_linux.o: main_linux.c server.h client.c argsetup.h ACK.h
 	gcc -c main_linux.c
 server.o: server.c server.h TCP.h UDP.h argsetup.h
